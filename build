@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -e
+
+for f in */Containerfile; do
+    image=${f/-box\/Containerfile/}
+    echo $image
+    podman build \
+           --tag $image \
+           --file $f \
+           --squash
+done
+
+yes | podman image prune

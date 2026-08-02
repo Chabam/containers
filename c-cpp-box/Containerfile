@@ -1,0 +1,14 @@
+FROM registry.fedoraproject.org/fedora:44
+
+RUN dnf -y upgrade \
+    && dnf clean all
+
+RUN dnf -y install \
+    clang-tools-extra \
+    cmake \
+    make \
+    g++ \
+    gdb \
+    bear \
+    perf \
+    && dnf clean all

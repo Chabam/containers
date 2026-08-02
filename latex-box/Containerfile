@@ -1,0 +1,27 @@
+FROM registry.fedoraproject.org/fedora:44
+
+RUN dnf -y upgrade \
+    && dnf clean all
+
+RUN dnf -y install \
+    texlive-scheme-medium \
+    texlive-collection-latex \
+    texlive-collection-latexrecommended \
+    texlive-collection-latexextra \
+    texlive-collection-fontsrecommended \
+    texlive-pgf \
+    texlive-e-french \
+    texlive-collection-langenglish \
+    texlive-collection-langfrench \
+    texlive-collection-xetex \
+    texlive-collection-luatex \
+    && dnf clean all
+
+WORKDIR /tmp
+ARG LTEX_LS_PLUS_VERSION="18.7.0"
+ARG LTEX_LS_PLUS_URL="https://github.com/ltex-plus/ltex-ls-plus/releases/download/${LTEX_LS_PLUS_VERSION}/ltex-ls-plus-${LTEX_LS_PLUS_VERSION}-linux-x64.tar.gz"
+# ltex-ls-plus for grammar checking
+RUN curl -o ltex-ls-plus.tar.gz -L ${LTEX_LS_PLUS_URL} \
+    && tar -xvf ltex-ls-plus.tar.gz  -C /usr/local --no-same-owner --no-overwrite-dir \
+    && ln -s /usr/local/ltex-ls-plus-*/bin/ltex-ls-plus /usr/local/bin/ltex-ls-plus \
+    && rm ltex-ls-plus.tar.gz
