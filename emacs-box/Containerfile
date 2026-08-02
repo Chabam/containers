@@ -37,12 +37,18 @@ RUN dnf install -y cyrus-sasl-devel automake libtool && \
     cd cyrus-sasl-xoauth2/ && \
     ./autogen.sh && \
     ./configure && \
-    sudo make install && \
-    sudo mv /usr/lib/sasl2/* /usr/lib64/sasl2/ && \
-    sudo rmdir /usr/lib/sasl2
+    make install && \
+    mv /usr/lib/sasl2/* /usr/lib64/sasl2/ && \
+    rmdir /usr/lib/sasl2 && \
+    dnf remove -y cyrus-sasl-devel automake libtool && \
+    dnf clean all
 
 WORKDIR /tmp
 RUN dnf install -y rustc cargo && \
     git clone https://github.com/ltratt/pizauth && \
     cd pizauth && \
-    sudo make install
+    make install && \
+    dnf remove -y rustc cargo && \
+    dnf clean all
+
+RUN rm -rf /tmp/*
