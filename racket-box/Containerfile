@@ -4,5 +4,7 @@ RUN dnf -y upgrade \
     && dnf clean all
 
 RUN dnf -y install \
-    racket-minimal \
+    racket \
     && dnf clean all
+
+RUN yes a | raco pkg install -i racket-langserver
