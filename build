@@ -12,3 +12,9 @@ for f in */Containerfile; do
 done
 
 yes | podman image prune
+
+for f in */Containerfile; do
+    image=${f/-box\/Containerfile/}
+    toolbox rm -f $image
+    toolbox create -y --image $image $image
+done
