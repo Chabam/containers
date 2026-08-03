@@ -43,8 +43,9 @@ RUN curl -LO https://alpha.gnu.org/gnu/emacs/pretest/emacs-${EMACS_VERSION}.tar.
         --enable-link-time-optimization && \
     make -j"$(nproc)" && \
     make DESTDIR=/tmp/installroot install && \
-    make clean && \
-    cp -r ./src /tmp/installroot/usr
+    make distclean && \
+    mkdir -p /tmp/installroot/usr/src && \
+    cp -r /usr/src/emacs-${EMACS_VERSION} /tmp/installroot/usr/src
 
 
 FROM registry.fedoraproject.org/fedora-toolbox:44 AS runtime
