@@ -1,0 +1,8 @@
+FROM registry.fedoraproject.org/fedora:rawhide
+
+RUN dnf -y upgrade \
+    && dnf clean all
+
+RUN dnf -y builddep gnome-shell mutter && \
+    dnf -y install clang-tools-extra \
+    && dnf clean all
