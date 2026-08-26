@@ -18,8 +18,8 @@ RUN dnf -y upgrade && \
         librsvg2-devel \
         libwebp-devel \
         libtiff-devel \
-        giflib-devel && \
-    dnf clean all
+        giflib-devel \
+    && dnf clean all
 
 FROM emacs_build_deps AS emacs_build
 
@@ -29,8 +29,8 @@ ENV EMACS_VERSION=31.1
 ENV CFLAGS="-O3 -march=native -mtune=native -flto"
 ENV LDFLAGS="-flto"
 
-RUN curl -LO https://alpha.gnu.org/gnu/emacs/pretest/emacs-${EMACS_VERSION}-rc1.tar.xz && \
-    tar -xf emacs-${EMACS_VERSION}-rc1.tar.xz && \
+RUN curl -LO https://mirror.csclub.uwaterloo.ca/gnu/emacs/emacs-${EMACS_VERSION}.tar.xz && \
+    tar -xf emacs-${EMACS_VERSION}.tar.xz && \
     cd emacs-${EMACS_VERSION} && \
     ./configure \
         --prefix=/usr \
@@ -60,8 +60,9 @@ RUN dnf -y upgrade && \
         librsvg2 \
         libwebp \
         libtiff \
-        giflib && \
-    dnf clean all
+        giflib \
+        libvterm-devel \
+    && dnf clean all
 
 COPY --from=emacs_build /tmp/installroot/ /
 
@@ -71,8 +72,8 @@ FROM runtime AS emacs_mail
 RUN dnf -y install \
         mu \
         isync \
-        msmtp && \
-    dnf clean all
+        msmtp \
+    && dnf clean all
 
 
 # Build cyrus-sasl-xoauth2
@@ -107,8 +108,8 @@ RUN dnf -y install \
         rust \
         cargo \
         git \
-        make && \
-    dnf clean all
+        make \
+    && dnf clean all
 
 WORKDIR /tmp
 
@@ -127,33 +128,24 @@ RUN dnf -y install \
         google-noto-color-emoji-fonts \
         gdk-pixbuf2-modules-extra \
         jetbrains-mono-fonts-all \
-        wl-clipboard \
-        direnv \
-        hunspell-en \
-        hunspell-fr \
-        enchant2-devel \
-        locate \
-        pandoc \
-        stow \
-        podman-remote && \
-    dnf clean all && \
-    ln -sf /usr/bin/podman-remote /usr/bin/podman
+    && dnf clean all \
+    && ln -sf /usr/bin/podman-remote /usr/bin/podman
 
 FROM emacs as lang_toolchains
 
 # LaTeX
 RUN dnf -y install \
-    texlive-scheme-medium \
-    texlive-collection-latex \
-    texlive-collection-latexrecommended \
-    texlive-collection-latexextra \
-    texlive-collection-fontsrecommended \
-    texlive-pgf \
-    texlive-e-french \
-    texlive-collection-langenglish \
-    texlive-collection-langfrench \
-    texlive-collection-xetex \
-    texlive-collection-luatex \
+        texlive-scheme-medium \
+        texlive-collection-latex \
+        texlive-collection-latexrecommended \
+        texlive-collection-latexextra \
+        texlive-collection-fontsrecommended \
+        texlive-pgf \
+        texlive-e-french \
+        texlive-collection-langenglish \
+        texlive-collection-langfrench \
+        texlive-collection-xetex \
+        texlive-collection-luatex \
     && dnf clean all
 
 WORKDIR /tmp
@@ -178,25 +170,43 @@ RUN dnf -y install \
 RUN yes a | raco pkg install -i racket-langserver
 
 # R
-RUN dnf -y install R
+RUN dnf -y install R \
+    && dnf clean all
 
 WORKDIR /tmp
+ENV ZIG_VERSION=0.16.0
 # Zig
-RUN dnf -y zig && \
-    curl zls.tar.xz -o https://builds.zigtools.org/zls-x86_64-linux-0.16.0.tar.xz && \
-    tar -xvf zls.tar.xz && \
+RUN dnf -y install zig && \
+    curl -LO https://builds.zigtools.org/zls-x86_64-linux-${ZIG_VERSION}.tar.xz && \
+    tar -xvf zls-x86_64-linux-${ZIG_VERSION}.tar.xz && \
     cp zls /usr/bin
 
 # C/CPP
 RUN dnf -y install \
-    clang-tools-extra \
-    cmake \
-    make \
-    g++ \
-    gdb \
-    bear \
-    perf \
+        clang-tools-extra \
+        cmake \
+        meson \
+        make \
+        g++ \
+        gdb \
+        bear \
+        perf \
     && dnf clean all
 
-FROM lang_toolchains AS additional_tooling
+FROM lang_toolchains AS misc_tools
+RUN dnf -y install \
+        pandoc \
+        stow \
+        wl-clipboard \
+        direnv \
+        hunspell-en \
+        hunspell-fr \
+        enchant2-devel \
+        locate \
+        podman-remote \
+        hugo \
+    && dnf clean all
+
+FROM misc_tools AS finishing_touches
 RUN mandb && updatedb
+RUN rm -r /tmp/*
