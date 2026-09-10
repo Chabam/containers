@@ -146,6 +146,7 @@ RUN dnf -y install \
         texlive-collection-langfrench \
         texlive-collection-xetex \
         texlive-collection-luatex \
+        texlive-apacite \
     && dnf clean all
 
 WORKDIR /tmp
@@ -182,7 +183,10 @@ RUN dnf -y install zig && \
     cp zls /usr/bin
 
 # C/CPP
-RUN dnf -y install \
+RUN dnf -y group install development-tools \
+    && dnf -y install \
+        # Needed for conan...
+        perl-core \
         clang-tools-extra \
         cmake \
         meson \
