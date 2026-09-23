@@ -1,128 +1,8 @@
-FROM registry.fedoraproject.org/fedora-toolbox:44 AS emacs_build_deps
+FROM registry.fedoraproject.org/fedora-toolbox:rawhide AS emacs
 
 RUN dnf -y upgrade && \
     dnf -y install \
-        gcc \
-        make \
-        curl \
-        git \
-        tar \
-        xz \
-        gtk3-devel \
-        gnutls-devel \
-        ncurses-devel \
-        libtree-sitter-devel \
-        sqlite-devel \
-        libgccjit-devel \
-        libjpeg-turbo-devel \
-        librsvg2-devel \
-        libwebp-devel \
-        libtiff-devel \
-        giflib-devel \
-    && dnf clean all
-
-FROM emacs_build_deps AS emacs_build
-
-WORKDIR /usr/src
-
-ENV EMACS_VERSION=31.1
-ENV CFLAGS="-O3 -march=native -mtune=native -flto"
-ENV LDFLAGS="-flto"
-
-RUN curl -LO https://mirror.csclub.uwaterloo.ca/gnu/emacs/emacs-${EMACS_VERSION}.tar.xz && \
-    tar -xf emacs-${EMACS_VERSION}.tar.xz && \
-    cd emacs-${EMACS_VERSION} && \
-    ./configure \
-        --prefix=/usr \
-        --with-pgtk \
-        --with-native-compilation=aot \
-        --with-tree-sitter \
-        --with-modules \
-        --with-sound=no \
-        --enable-link-time-optimization && \
-    make -j"$(nproc)" && \
-    make DESTDIR=/tmp/installroot install && \
-    make distclean && \
-    mkdir -p /tmp/installroot/usr/src && \
-    cp -r /usr/src/emacs-${EMACS_VERSION} /tmp/installroot/usr/src
-
-FROM registry.fedoraproject.org/fedora-toolbox:44 AS runtime
-
-RUN dnf -y upgrade && \
-    dnf -y install \
-        gtk3 \
-        gnutls \
-        ncurses-libs \
-        libtree-sitter \
-        sqlite-libs \
-        libgccjit \
-        libjpeg-turbo \
-        librsvg2 \
-        libwebp \
-        libtiff \
-        giflib \
-        libvterm-devel \
-    && dnf clean all
-
-COPY --from=emacs_build /tmp/installroot/ /
-
-
-FROM runtime AS emacs_mail
-
-RUN dnf -y install \
-        mu \
-        isync \
-        msmtp \
-    && dnf clean all
-
-
-# Build cyrus-sasl-xoauth2
-FROM emacs_build_deps AS sasl_build
-
-WORKDIR /tmp
-
-RUN dnf -y install automake libtool cyrus-sasl-devel && \
-    git clone https://github.com/moriyoshi/cyrus-sasl-xoauth2 && \
-    cd cyrus-sasl-xoauth2 && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make -j"$(nproc)" && \
-    make DESTDIR=/tmp/installroot install
-
-
-FROM emacs_mail AS emacs_mail_sasl
-
-COPY --from=sasl_build /tmp/installroot/ /
-
-RUN if [ -d /usr/lib/sasl2 ]; then \
-        mkdir -p /usr/lib64/sasl2 && \
-        mv /usr/lib/sasl2/* /usr/lib64/sasl2/ && \
-        rmdir /usr/lib/sasl2; \
-    fi
-
-
-# Build pizauth
-FROM registry.fedoraproject.org/fedora-toolbox:44 AS pizauth_build
-
-RUN dnf -y install \
-        rust \
-        cargo \
-        git \
-        make \
-    && dnf clean all
-
-WORKDIR /tmp
-
-RUN git clone https://github.com/ltratt/pizauth && \
-    cd pizauth && \
-    make PREFIX=/usr DESTDIR=/tmp/installroot install
-
-
-FROM emacs_mail_sasl AS emacs
-
-COPY --from=pizauth_build /tmp/installroot/ /
-
-RUN dnf -y install \
+        emacs-pgtk \
         flatpak-xdg-open \
         adw-gtk3-theme \
         google-noto-color-emoji-fonts \
@@ -166,6 +46,8 @@ RUN dnf -y install python-pip \
 # Racket
 RUN dnf -y install \
     racket \
+    # Needed for raco
+    openssl-devel \
     && dnf clean all
 
 RUN yes a | raco pkg install -i racket-langserver
@@ -205,7 +87,6 @@ RUN dnf -y install \
         direnv \
         hunspell-en \
         hunspell-fr \
-        enchant2-devel \
         locate \
         podman-remote \
         hugo \
@@ -214,3 +95,4 @@ RUN dnf -y install \
 FROM misc_tools AS finishing_touches
 RUN mandb && updatedb
 RUN rm -r /tmp/*
+RUN find /usr/share/emacs/site-lisp/ -name "*.el" -exec sed -i '1i\;; -*- lexical-binding: nil; -*-' {} +
