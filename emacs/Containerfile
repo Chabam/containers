@@ -1,8 +1,107 @@
-FROM registry.fedoraproject.org/fedora-toolbox:rawhide AS emacs
+FROM registry.fedoraproject.org/fedora-toolbox:44 AS emacs_build_deps
 
 RUN dnf -y upgrade && \
     dnf -y install \
-        emacs-pgtk \
+	git \
+        alsa-lib-devel \
+        atk-devel \
+        autoconf \
+        bzip2 \
+        cairo \
+        cairo-devel \
+        dbus-devel \
+        desktop-file-utils \
+        fontconfig-devel \
+        freetype-devel \
+        gcc \
+        giflib-devel \
+        glibc-devel \
+        gnupg2 \
+        gnutls-devel \
+        gtk3-devel \
+        gzip \
+        harfbuzz-devel \
+        libacl-devel \
+        libappstream-glib \
+        libgccjit-devel \
+        libjpeg-turbo \
+        libjpeg-turbo-devel \
+        libotf-devel \
+        libpng-devel \
+        librsvg2-devel \
+        libselinux-devel \
+        libtiff-devel \
+        libtree-sitter-devel \
+        libwebp-devel \
+        libxml2-devel \
+        m17n-lib-devel \
+        make \
+        ncurses-devel \
+        sqlite-devel \
+        systemd-devel \
+        systemd-rpm-macros \
+        texinfo \
+        zlib-devel \
+    && dnf clean all
+
+FROM emacs_build_deps AS emacs_build
+
+WORKDIR /usr/src
+ENV CFLAGS="-O2 -march=native"
+RUN git clone --depth 1 https://github.com/emacs-mirror/emacs.git && \
+    cd emacs && \
+    # these comes from Fedora's `emacs.spec' file for pgtk
+    ./autogen.sh && \
+    ./configure \
+        --disable-gc-mark-trace \
+        --with-cairo \
+        --with-dbus \
+        --with-gif \
+        --with-gpm=no \
+        --with-harfbuzz \
+        --with-jpeg \
+        --with-modules \
+        --with-native-compilation=aot \
+        --with-pgtk \
+        --with-png \
+        --with-rsvg \
+        --with-sqlite3 \
+        --with-tiff \
+        --with-tree-sitter \
+        --with-webp \
+        --with-xpm \
+        --with-file-notification=inotify && \
+    make -j"$(nproc)" && \
+    make DESTDIR=/tmp/installroot install && \
+    make distclean && \
+    mkdir -p /tmp/installroot/usr/src && \
+    cp -r /usr/src/emacs /tmp/installroot/usr/src
+
+FROM registry.fedoraproject.org/fedora-toolbox:44 AS emacs_runtime
+
+RUN dnf -y upgrade && \
+    dnf -y install \
+        gtk3 \
+        gnutls \
+        ncurses-libs \
+        libtree-sitter \
+        sqlite-libs \
+        libgccjit \
+        libjpeg-turbo \
+        librsvg2 \
+        libwebp \
+        libtiff \
+        libotf \
+        giflib \
+        libvterm-devel \
+    && dnf clean all
+
+COPY --from=emacs_build /tmp/installroot/ /
+
+
+FROM emacs_runtime AS emacs_base
+
+RUN dnf -y install \
         flatpak-xdg-open \
         adw-gtk3-theme \
         google-noto-color-emoji-fonts \
@@ -11,7 +110,7 @@ RUN dnf -y upgrade && \
     && dnf clean all \
     && ln -sf /usr/bin/podman-remote /usr/bin/podman
 
-FROM emacs as lang_toolchains
+FROM emacs_base as lang_toolchains
 
 # LaTeX
 RUN dnf -y install \
@@ -59,7 +158,10 @@ RUN dnf -y install R \
 WORKDIR /tmp
 ENV ZIG_VERSION=0.16.0
 # Zig
-RUN dnf -y install zig && \
+RUN curl -LO https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz && \
+    tar -xvf zig-x86_64-linux-${ZIG_VERSION}.tar.xz && \
+    cp zig-x86_64-linux-${ZIG_VERSION}/zig /usr/bin && \
+    cp zig-x86_64-linux-${ZIG_VERSION}/lib -r /usr/ && \
     curl -LO https://builds.zigtools.org/zls-x86_64-linux-${ZIG_VERSION}.tar.xz && \
     tar -xvf zls-x86_64-linux-${ZIG_VERSION}.tar.xz && \
     cp zls /usr/bin
@@ -95,4 +197,3 @@ RUN dnf -y install \
 FROM misc_tools AS finishing_touches
 RUN mandb && updatedb
 RUN rm -r /tmp/*
-RUN find /usr/share/emacs/site-lisp/ -name "*.el" -exec sed -i '1i\;; -*- lexical-binding: nil; -*-' {} +
