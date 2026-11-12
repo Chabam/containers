@@ -1,8 +1,8 @@
-FROM registry.fedoraproject.org/fedora-toolbox:44 AS emacs_build_deps
+FROM registry.fedoraproject.org/fedora-toolbox:45 AS emacs_build_deps
 
 RUN dnf -y upgrade && \
     dnf -y install \
-	git \
+        git \
         alsa-lib-devel \
         atk-devel \
         autoconf \
@@ -48,7 +48,8 @@ FROM emacs_build_deps AS emacs_build
 
 WORKDIR /usr/src
 ENV CFLAGS="-O2 -march=native"
-RUN git clone --depth 1 https://github.com/emacs-mirror/emacs.git && \
+ENV EMACS_VERSION="31.1"
+RUN git clone --depth 1 https://github.com/emacs-mirror/emacs.git --branch emacs-${EMACS_VERSION} && \
     cd emacs && \
     # these comes from Fedora's `emacs.spec' file for pgtk
     ./autogen.sh && \
@@ -77,23 +78,22 @@ RUN git clone --depth 1 https://github.com/emacs-mirror/emacs.git && \
     mkdir -p /tmp/installroot/usr/src && \
     cp -r /usr/src/emacs /tmp/installroot/usr/src
 
-FROM registry.fedoraproject.org/fedora-toolbox:44 AS emacs_runtime
+FROM registry.fedoraproject.org/fedora-toolbox:45 AS emacs_runtime
 
 RUN dnf -y upgrade && \
     dnf -y install \
-        gtk3 \
+        giflib \
         gnutls \
-        ncurses-libs \
-        libtree-sitter \
-        sqlite-libs \
+        gtk3 \
         libgccjit \
         libjpeg-turbo \
-        librsvg2 \
-        libwebp \
-        libtiff \
         libotf \
-        giflib \
-        libvterm-devel \
+        librsvg2 \
+        libtiff \
+        libtree-sitter \
+        libwebp \
+        ncurses-libs \
+        sqlite-libs \
     && dnf clean all
 
 COPY --from=emacs_build /tmp/installroot/ /
@@ -102,10 +102,10 @@ COPY --from=emacs_build /tmp/installroot/ /
 FROM emacs_runtime AS emacs_base
 
 RUN dnf -y install \
-        flatpak-xdg-open \
         adw-gtk3-theme \
-        google-noto-color-emoji-fonts \
+        flatpak-xdg-open \
         gdk-pixbuf2-modules-extra \
+        google-noto-color-emoji-fonts \
         jetbrains-mono-fonts-all \
     && dnf clean all \
     && ln -sf /usr/bin/podman-remote /usr/bin/podman
@@ -140,7 +140,8 @@ RUN curl -o ltex-ls-plus.tar.gz -L ${LTEX_LS_PLUS_URL} \
 # Python
 RUN dnf -y install python-pip \
     && dnf clean all \
-    && pip install --no-cache-dir pyright
+    && pip install --no-cache-dir basedpyright
+
 
 # Racket
 RUN dnf -y install \
