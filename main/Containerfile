@@ -94,6 +94,8 @@ RUN dnf -y upgrade && \
         libwebp \
         ncurses-libs \
         sqlite-libs \
+        # for vterm
+        libvterm-devel \
     && dnf clean all
 
 COPY --from=emacs_build /tmp/installroot/ /
